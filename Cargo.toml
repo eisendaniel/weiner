@@ -1,0 +1,10 @@
+[package]
+name = "weiner"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+eframe = { version = "0.31.0", default-features = false, features = ["wgpu", "default_fonts", "x11"] } #CHONKIE GUI
+native-tls = "0.2.13"
+poll-promise = "0.3.0"
+url = "2.2.2"
