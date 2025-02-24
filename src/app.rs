@@ -47,14 +47,15 @@ impl eframe::App for Weiner {
                             None => (Default::default(), Default::default()),
                         };
                         if self.route != self.history[self.history.len() - self.offset] {
-                            self.history.push(self.route.clone()); //successful request
+                            //is new page?
+                            // self.history.push(self.route.clone()); //successful request
+                            self.history
+                                .insert(self.history.len() - self.offset + 1, self.route.clone());
                         }
-                        println!("{:?}", self.history);
                     }
                     None => {
                         self.route = self.history[self.history.len() - self.offset].clone();
                         //failed for some reason, reset to current page
-                        println!("{:?}", self.history);
                     }
                 }
                 self.fetch_promise = None;
@@ -73,7 +74,7 @@ impl eframe::App for Weiner {
 
                 let linkedit = ui.text_edit_singleline(&mut self.route);
                 if linkedit.lost_focus() {
-                    self.offset = 1;
+                    // self.offset = 1;
                     self.fetch_requested = true;
                 }
                 if ui.button("⟳").clicked() {
@@ -96,6 +97,18 @@ impl eframe::App for Weiner {
                 }
                 if self.fetch_promise.is_some() {
                     ui.spinner();
+                }
+            });
+            ui.separator();
+            ui.collapsing("History", |ui| {
+                let mut i = self.history.len();
+                for item in &self.history {
+                    if self.offset == i {
+                        ui.label(format!("> {}", item));
+                    } else {
+                        ui.label(item);
+                    }
+                    i -= 1;
                 }
             });
             ui.separator();
