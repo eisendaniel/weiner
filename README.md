@@ -5,4 +5,5 @@ A `WIP` client for the [`gemini://`](https://geminiprotocol.net/) protocol  expl
 Named after mathematician Norbert Wiener in keeping with the Gemini "tradition" of client names.
 
 ## `WIP`
-Heavy use of dirty `unwraps` and unhandled thread dropping, crashes abound.
+gem protocol status codes unhandled
+gemtext unparsed
