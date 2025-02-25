@@ -37,7 +37,9 @@ impl eframe::App for Weiner {
             ));
             self.fetch_requested = false;
         }
+
         if self.fetch_promise.is_some() {
+            //display fetch gemini response and update history
             if let Some(ready) = self.fetch_promise.as_ref().unwrap().ready() {
                 match ready {
                     Some(response) => {
@@ -58,7 +60,7 @@ impl eframe::App for Weiner {
                         //failed for some reason, reset to current page
                     }
                 }
-                self.fetch_promise = None;
+                self.fetch_promise = None; //make request complete
             }
         }
 
@@ -96,7 +98,6 @@ impl eframe::App for Weiner {
                     self.route = self.history[self.history.len() - self.offset].clone();
                     self.fetch_requested = true;
                 }
-
                 if ui.add_enabled(self.offset > 1, Button::new("➡")).clicked() {
                     self.offset = (self.offset - 1).clamp(1, self.history.len());
                     self.route = self.history[self.history.len() - self.offset].clone();

@@ -1,6 +1,6 @@
 /*Gemini Protocol and Text functions
 *  IS responsible for requests
-*  IS responsible for gemtext parsing (!TODO)
+* IS responsible for handling gemini protocol status/reponses
 * NOT responsible for state (history, current page, etc)
 * NOT responsible for presentation (gui)
 */
@@ -15,8 +15,8 @@ use std::net::TcpStream;
 */
 
 pub fn fetch(url_str: &str) -> Option<Vec<u8>> { // !todo[0]
-    let link = url::Url::parse(url_str).ok()?;
-    
+    let link = url::Url::parse(url_str).ok()?;    
+
     let host = link.host_str()?;
     let url = format!("{}:1965", host);
     
@@ -34,6 +34,8 @@ pub fn fetch(url_str: &str) -> Option<Vec<u8>> { // !todo[0]
     mstream.write_all(request.as_bytes()).unwrap();
     let mut response = vec![];
     mstream.read_to_end(&mut response).unwrap();
+
+    
 
     Some(response)
 }
