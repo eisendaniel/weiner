@@ -72,12 +72,16 @@ impl eframe::App for Weiner {
                     self.fetch_requested = true;
                 }
 
-                let searchbar = ui.add_enabled(
-                    self.fetch_promise.is_none(),
-                    TextEdit::singleline(&mut self.route),
-                );
-                if searchbar.changed() && !searchbar.has_focus() {
-                    self.fetch_requested = true;
+                if ui
+                    .add_enabled(
+                        self.fetch_promise.is_none(),
+                        TextEdit::singleline(&mut self.route),
+                    )
+                    .lost_focus()
+                {
+                    ui.input(|i| {
+                        self.fetch_requested |= i.key_pressed(egui::Key::Enter);
+                    });
                 }
 
                 if ui.button("⟳").clicked() {
