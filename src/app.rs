@@ -1,5 +1,5 @@
 use crate::gemini;
-use eframe::egui::{self, Button};
+use eframe::egui::{self, Button, TextEdit};
 
 pub struct Weiner {
     route: String,
@@ -72,11 +72,14 @@ impl eframe::App for Weiner {
                     self.fetch_requested = true;
                 }
 
-                let linkedit = ui.text_edit_singleline(&mut self.route);
-                if linkedit.lost_focus() {
-                    // self.offset = 1;
+                let searchbar = ui.add_enabled(
+                    self.fetch_promise.is_none(),
+                    TextEdit::singleline(&mut self.route),
+                );
+                if searchbar.changed() && !searchbar.has_focus() {
                     self.fetch_requested = true;
                 }
+
                 if ui.button("⟳").clicked() {
                     self.fetch_requested = true;
                 }
