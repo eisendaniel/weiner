@@ -3,19 +3,17 @@ use eframe::egui::{self, Button, TextEdit};
 
 pub struct Weiner {
     route: String,
-    status: String,  //todo remove
     content: String, //todo parse into styled/rich text
     history: Vec<String>,
     offset: usize,
     fetch_requested: bool,
-    fetch_promise: Option<poll_promise::Promise<Option<Vec<u8>>>>,
+    fetch_promise: Option<poll_promise::Promise<Option<(String, Vec<u8>)>>>,
 }
 
 impl Default for Weiner {
     fn default() -> Self {
         Self {
             route: "gemini://geminiprotocol.net/".to_owned(),
-            status: Default::default(),
             content: Default::default(),
             history: vec!["gemini://geminiprotocol.net/".to_owned()],
             offset: 1,
@@ -25,13 +23,13 @@ impl Default for Weiner {
     }
 }
 
-impl eframe::App for Weiner {
-    fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
+impl Weiner {
+    fn process_gemini(&mut self) {
         //web shit
         if self.fetch_requested {
             let url_str = self.route.clone();
             self.fetch_promise = Some(poll_promise::Promise::spawn_thread(
-                //Is there an issue if new thread spawned to overwrite an active thread?
+                //Is there an issue if new thread spawned to overwrite an active thread? Does it die or get orphaned?
                 "gemini::fetch",
                 move || gemini::fetch(&url_str),
             ));
@@ -42,15 +40,10 @@ impl eframe::App for Weiner {
             //display fetch gemini response and update history
             if let Some(ready) = self.fetch_promise.as_ref().unwrap().ready() {
                 match ready {
-                    Some(response) => {
-                        let response = String::from_utf8_lossy(response).into_owned();
-                        (self.status, self.content) = match response.split_once("\r\n") {
-                            Some((s, c)) => (s.to_owned(), c.to_owned()),
-                            None => (Default::default(), Default::default()),
-                        };
+                    Some((uri, response)) => {
+                        self.content = String::from_utf8_lossy(response).into_owned();
+                        self.route = uri.clone(); //update with endpoint uri (redirection etc)
                         if self.route != self.history[self.history.len() - self.offset] {
-                            //is new page?
-                            // self.history.push(self.route.clone()); //successful request
                             self.history
                                 .insert(self.history.len() - self.offset + 1, self.route.clone());
                         }
@@ -63,9 +56,21 @@ impl eframe::App for Weiner {
                 self.fetch_promise = None; //make request complete
             }
         }
+    }
+}
+
+impl eframe::App for Weiner {
+    fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
+        if ctx.input(|i| {
+            i.key_pressed(egui::Key::Escape) | (i.modifiers.ctrl && i.key_pressed(egui::Key::Q))
+        }) {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
+
+        self.process_gemini();
 
         //ui
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::TopBottomPanel::top("nav_bar").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 egui::widgets::global_theme_preference_switch(ui);
 
@@ -74,17 +79,11 @@ impl eframe::App for Weiner {
                     self.fetch_requested = true;
                 }
 
-                if ui
-                    .add_enabled(
-                        self.fetch_promise.is_none(),
-                        TextEdit::singleline(&mut self.route),
-                    )
-                    .lost_focus()
-                {
-                    ui.input(|i| {
-                        self.fetch_requested |= i.key_pressed(egui::Key::Enter);
-                    });
-                }
+                let searchbar = ui.add_enabled(
+                    self.fetch_promise.is_none(),
+                    TextEdit::singleline(&mut self.route)
+                        .desired_width(ui.available_width() * 0.75),
+                );
 
                 if ui.button("⟳").clicked() {
                     self.fetch_requested = true;
@@ -103,11 +102,21 @@ impl eframe::App for Weiner {
                     self.route = self.history[self.history.len() - self.offset].clone();
                     self.fetch_requested = true;
                 }
+
                 if self.fetch_promise.is_some() {
+                    //indicating loading page/request etc
                     ui.spinner();
                 }
+
+                //layout input
+                self.fetch_requested |=
+                    searchbar.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                if ui.input(|i| i.key_pressed(egui::Key::Slash)) {
+                    searchbar.request_focus();
+                }
             });
-            ui.separator();
+        });
+        egui::CentralPanel::default().show(ctx, |ui| {
             ui.collapsing("History", |ui| {
                 let mut i = self.history.len();
                 for item in &self.history {
@@ -120,18 +129,8 @@ impl eframe::App for Weiner {
                 }
             });
             ui.separator();
-            ui.vertical(|ui| {
-                ui.label(&self.status);
-                ui.separator();
-                egui::ScrollArea::vertical().show(ui, |ui| {
-                    ui.with_layout(
-                        egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
-                        |ui| {
-                            // ui.label(&content);
-                            ui.label(egui::RichText::new(&self.content));
-                        },
-                    )
-                });
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                ui.label(egui::RichText::new(&self.content));
             });
         });
     }
