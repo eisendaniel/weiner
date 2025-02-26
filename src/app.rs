@@ -30,7 +30,6 @@ impl Default for Weiner {
 
 impl eframe::App for Weiner {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        
         if ctx.input(|i| i.key_pressed(Key::Escape) | (i.modifiers.ctrl && i.key_pressed(Key::Q))) {
             ctx.send_viewport_cmd(ViewportCommand::Close);
         }
@@ -81,11 +80,6 @@ impl Weiner {
             ui.horizontal(|ui| {
                 egui::widgets::global_theme_preference_switch(ui);
 
-                if ui.button("🏠").clicked() {
-                    self.route = Weiner::default().route;
-                    self.fetch_requested = true;
-                }
-
                 let back = ui.add_enabled(self.offset < self.history.len(), Button::new("⬅"));
                 let forward = ui.add_enabled(self.offset > 1, Button::new("➡"));
 
@@ -97,18 +91,19 @@ impl Weiner {
                 } else {
                     self.fetch_requested |=
                         ui.button("⟳").clicked() || ui.input(|i| i.key_pressed(Key::F5));
-                        ui.add_space(26.);
                 }
 
-                if self.fetch_promise.is_some() {
-                    ui.spinner();
-                };
                 let searchbar = ui.add_enabled(
                     self.fetch_promise.is_none(),
-                    TextEdit::singleline(&mut self.route)
-                        .desired_width(ui.available_width()),
+                    TextEdit::singleline(&mut self.route).desired_width(ui.available_width()),
                 );
 
+                if self.fetch_promise.is_some() {
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.add_space(10.0);
+                        ui.spinner();
+                    });
+                };
 
                 //layout input
                 self.fetch_requested |=
