@@ -30,7 +30,7 @@ impl Default for Weiner {
 
 impl eframe::App for Weiner {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        if ctx.input(|i| i.key_pressed(Key::Escape) | (i.modifiers.ctrl && i.key_pressed(Key::Q))) {
+        if ctx.input(|i| i.modifiers.ctrl && i.key_pressed(Key::Q)) {
             ctx.send_viewport_cmd(ViewportCommand::Close);
         }
 
@@ -108,9 +108,16 @@ impl Weiner {
                 //layout input
                 self.fetch_requested |=
                     searchbar.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter));
-                if ui.input(|i| i.key_pressed(Key::Slash)) {
+                if ui.input(|i| {
+                    i.key_pressed(Key::Slash) || (i.modifiers.ctrl && i.key_pressed(Key::E))
+                }) {
                     searchbar.request_focus();
                 }
+
+                if ui.input(|i| i.key_pressed(Key::Escape)) {
+                    searchbar.surrender_focus();
+                }
+
                 if back.clicked()
                     || (back.enabled()
                         && ui.input(|i| i.modifiers.alt && i.key_pressed(Key::ArrowLeft)))
