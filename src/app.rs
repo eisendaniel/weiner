@@ -1,5 +1,9 @@
 use crate::gemini;
-use eframe::egui::{self, Button, TextEdit};
+use eframe::egui::{
+    self, Button, CentralPanel, Key, RichText, ScrollArea, TextEdit, TopBottomPanel,
+    ViewportCommand,
+};
+use poll_promise::Promise;
 
 pub struct Weiner {
     route: String,
@@ -7,19 +11,33 @@ pub struct Weiner {
     history: Vec<String>,
     offset: usize,
     fetch_requested: bool,
-    fetch_promise: Option<poll_promise::Promise<Option<(String, Vec<u8>)>>>,
+    fetch_promise: Option<Promise<gemini::Response>>,
 }
 
 impl Default for Weiner {
     fn default() -> Self {
+        let home = "gemini://geminiprotocol.net/";
         Self {
-            route: "gemini://geminiprotocol.net/".to_owned(),
+            route: home.to_owned(),
             content: Default::default(),
-            history: vec!["gemini://geminiprotocol.net/".to_owned()],
+            history: vec![home.to_owned()],
             offset: 1,
             fetch_requested: true,
             fetch_promise: None,
         }
+    }
+}
+
+impl eframe::App for Weiner {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        
+        if ctx.input(|i| i.key_pressed(Key::Escape) | (i.modifiers.ctrl && i.key_pressed(Key::Q))) {
+            ctx.send_viewport_cmd(ViewportCommand::Close);
+        }
+
+        self.process_gemini();
+        self.draw_toolbar(ctx);
+        self.draw_content(ctx);
     }
 }
 
@@ -28,7 +46,7 @@ impl Weiner {
         //web shit
         if self.fetch_requested {
             let url_str = self.route.clone();
-            self.fetch_promise = Some(poll_promise::Promise::spawn_thread(
+            self.fetch_promise = Some(Promise::spawn_thread(
                 //Is there an issue if new thread spawned to overwrite an active thread? Does it die or get orphaned?
                 "gemini::fetch",
                 move || gemini::fetch(&url_str),
@@ -57,20 +75,9 @@ impl Weiner {
             }
         }
     }
-}
 
-impl eframe::App for Weiner {
-    fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
-        if ctx.input(|i| {
-            i.key_pressed(egui::Key::Escape) | (i.modifiers.ctrl && i.key_pressed(egui::Key::Q))
-        }) {
-            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-        }
-
-        self.process_gemini();
-
-        //ui
-        egui::TopBottomPanel::top("nav_bar").show(ctx, |ui| {
+    fn draw_toolbar(&mut self, ctx: &egui::Context) {
+        TopBottomPanel::top("nav_bar").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 egui::widgets::global_theme_preference_switch(ui);
 
@@ -79,38 +86,39 @@ impl eframe::App for Weiner {
                     self.fetch_requested = true;
                 }
 
-                let searchbar = ui.add_enabled(
-                    self.fetch_promise.is_none(),
-                    TextEdit::singleline(&mut self.route)
-                        .desired_width(ui.available_width() * 0.75),
-                );
+                let back = ui.add_enabled(self.offset < self.history.len(), Button::new("⬅"));
+                let forward = ui.add_enabled(self.offset > 1, Button::new("➡"));
 
                 if self.fetch_promise.is_some() {
-                    if ui.button("❌").clicked() {
+                    if ui.button("🗙").clicked() {
                         self.fetch_promise = None;
                         self.route = self.history[self.history.len() - self.offset].clone();
                     }
                 } else {
                     self.fetch_requested |=
-                        ui.button("⟳").clicked() || ui.input(|i| i.key_pressed(egui::Key::F5));
+                        ui.button("⟳").clicked() || ui.input(|i| i.key_pressed(Key::F5));
+                        ui.add_space(26.);
                 }
-
-                let back = ui.add_enabled(self.offset < self.history.len(), Button::new("⬅"));
-                let forward = ui.add_enabled(self.offset > 1, Button::new("➡"));
 
                 if self.fetch_promise.is_some() {
                     ui.spinner();
                 };
+                let searchbar = ui.add_enabled(
+                    self.fetch_promise.is_none(),
+                    TextEdit::singleline(&mut self.route)
+                        .desired_width(ui.available_width()),
+                );
+
 
                 //layout input
                 self.fetch_requested |=
-                    searchbar.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
-                if ui.input(|i| i.key_pressed(egui::Key::Slash)) {
+                    searchbar.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter));
+                if ui.input(|i| i.key_pressed(Key::Slash)) {
                     searchbar.request_focus();
                 }
                 if back.clicked()
                     || (back.enabled()
-                        && ui.input(|i| i.modifiers.alt && i.key_pressed(egui::Key::ArrowLeft)))
+                        && ui.input(|i| i.modifiers.alt && i.key_pressed(Key::ArrowLeft)))
                 {
                     self.offset = (self.offset + 1).clamp(1, self.history.len());
                     self.route = self.history[self.history.len() - self.offset].clone();
@@ -118,7 +126,7 @@ impl eframe::App for Weiner {
                 }
                 if forward.clicked()
                     || (forward.enabled()
-                        && ui.input(|i| i.modifiers.alt && i.key_pressed(egui::Key::ArrowRight)))
+                        && ui.input(|i| i.modifiers.alt && i.key_pressed(Key::ArrowRight)))
                 {
                     self.offset = (self.offset - 1).clamp(1, self.history.len());
                     self.route = self.history[self.history.len() - self.offset].clone();
@@ -126,7 +134,10 @@ impl eframe::App for Weiner {
                 }
             });
         });
-        egui::CentralPanel::default().show(ctx, |ui| {
+    }
+
+    fn draw_content(&mut self, ctx: &egui::Context) {
+        CentralPanel::default().show(ctx, |ui| {
             ui.collapsing("History", |ui| {
                 let mut i = self.history.len();
                 for item in &self.history {
@@ -139,8 +150,8 @@ impl eframe::App for Weiner {
                 }
             });
             ui.separator();
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                ui.label(egui::RichText::new(&self.content));
+            ScrollArea::vertical().show(ui, |ui| {
+                ui.label(RichText::new(&self.content));
             });
         });
     }

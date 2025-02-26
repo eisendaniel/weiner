@@ -9,6 +9,8 @@ use native_tls::TlsConnector;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 
+pub type Response = Option<(String, Vec<u8>)>;
+
 enum Status {
     Internal, //lib defined catch status (<10)
 
@@ -63,13 +65,16 @@ fn request(abs_uri: &url::Url) -> Result<Vec<u8>, Status> {
 * DO burden caller with submitting valid request or recieve None.
 * DO NOT burden caller with Results or handling gemini status codes
 */
-pub fn fetch(url_str: &str) -> Option<(String, Vec<u8>)> {
-    // !todo[0]
-    let mut abs_uri = url::Url::parse(url_str).ok()?;
+pub fn fetch(url_str: &str) -> Response {
+    let mut abs_uri = match url_str.ends_with('/') {
+        true => url::Url::parse(url_str),
+        false => url::Url::parse(&(url_str.to_owned() + "/")),
+    }
+    .ok()?;
 
     loop {
         match request(&abs_uri) {
-            Ok(content) => return Some((format!("{}", abs_uri.as_str()), content)),
+            Ok(content) => return Some((abs_uri.to_string(), content)),
             Err(status) => match status {
                 Status::Internal => return None,
                 Status::_Input => todo!(),
