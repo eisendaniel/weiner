@@ -13,7 +13,6 @@ enum Status {
     Internal, //lib defined catch status (<10)
 
     _Input,           //10-19
-    _Success,         //20-29
     Redirect(String), //30-39
     _TempFail,        //40-49
     _PermFail,        //50-59
@@ -74,8 +73,7 @@ pub fn fetch(url_str: &str) -> Option<(String, Vec<u8>)> {
             Err(status) => match status {
                 Status::Internal => return None,
                 Status::_Input => todo!(),
-                Status::_Success => todo!(),
-                Status::Redirect(to_str) => abs_uri = url::Url::parse(&to_str).ok()?,
+                Status::Redirect(redirection) => abs_uri = url::Url::parse(&redirection).ok()?,
                 Status::_TempFail => todo!(),
                 Status::_PermFail => todo!(),
                 Status::_ClientCert => todo!(),

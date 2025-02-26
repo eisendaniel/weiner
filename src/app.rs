@@ -85,34 +85,44 @@ impl eframe::App for Weiner {
                         .desired_width(ui.available_width() * 0.75),
                 );
 
-                if ui.button("⟳").clicked() {
-                    self.fetch_requested = true;
+                if self.fetch_promise.is_some() {
+                    if ui.button("❌").clicked() {
+                        self.fetch_promise = None;
+                        self.route = self.history[self.history.len() - self.offset].clone();
+                    }
+                } else {
+                    self.fetch_requested |=
+                        ui.button("⟳").clicked() || ui.input(|i| i.key_pressed(egui::Key::F5));
                 }
 
-                if ui
-                    .add_enabled(self.offset < self.history.len(), Button::new("⬅"))
-                    .clicked()
-                {
-                    self.offset = (self.offset + 1).clamp(1, self.history.len());
-                    self.route = self.history[self.history.len() - self.offset].clone();
-                    self.fetch_requested = true;
-                }
-                if ui.add_enabled(self.offset > 1, Button::new("➡")).clicked() {
-                    self.offset = (self.offset - 1).clamp(1, self.history.len());
-                    self.route = self.history[self.history.len() - self.offset].clone();
-                    self.fetch_requested = true;
-                }
+                let back = ui.add_enabled(self.offset < self.history.len(), Button::new("⬅"));
+                let forward = ui.add_enabled(self.offset > 1, Button::new("➡"));
 
                 if self.fetch_promise.is_some() {
-                    //indicating loading page/request etc
                     ui.spinner();
-                }
+                };
 
                 //layout input
                 self.fetch_requested |=
                     searchbar.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
                 if ui.input(|i| i.key_pressed(egui::Key::Slash)) {
                     searchbar.request_focus();
+                }
+                if back.clicked()
+                    || (back.enabled()
+                        && ui.input(|i| i.modifiers.alt && i.key_pressed(egui::Key::ArrowLeft)))
+                {
+                    self.offset = (self.offset + 1).clamp(1, self.history.len());
+                    self.route = self.history[self.history.len() - self.offset].clone();
+                    self.fetch_requested = true;
+                }
+                if forward.clicked()
+                    || (forward.enabled()
+                        && ui.input(|i| i.modifiers.alt && i.key_pressed(egui::Key::ArrowRight)))
+                {
+                    self.offset = (self.offset - 1).clamp(1, self.history.len());
+                    self.route = self.history[self.history.len() - self.offset].clone();
+                    self.fetch_requested = true;
                 }
             });
         });
